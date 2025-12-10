@@ -5,10 +5,19 @@ import { kv } from '@vercel/kv';
 const memoryStore = new Map();
 
 export const saveMatch = async (id, data) => {
+    // Debug logging to specific Vercel logs
+    console.log(`[STORAGE] Saving match ${id}. KV Configured: ${!!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)}`);
+
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-        await kv.set(`match:${id}`, data);
+        try {
+            await kv.set(`match:${id}`, data);
+            console.log(`[STORAGE] Successfully saved to KV: match:${id}`);
+        } catch (e) {
+            console.error(`[STORAGE] Failed to save to KV:`, e);
+            throw e;
+        }
     } else {
-        // console.warn('KV not configured, using memory store (data will be lost)');
+        console.warn('[STORAGE] KV not configured, using memory store (data will be lost in serverless)');
         memoryStore.set(id, data);
     }
 };
