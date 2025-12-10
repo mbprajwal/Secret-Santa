@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Create transporter dynamically to ensure env vars are loaded (fixes hoisting issue)
+        // Create transporter dynamically
         const transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST || 'smtp.gmail.com',
             port: process.env.SMTP_PORT || 587,
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
                 pass: process.env.SMTP_PASS,
             },
             tls: {
-                rejectUnauthorized: false // Helps with some self-signed cert issues in dev
+                rejectUnauthorized: false
             }
         });
 
@@ -39,12 +39,14 @@ export default async function handler(req, res) {
         for (const note of notifications) {
             if (!note.email) continue;
 
+            const timestamp = new Date().toLocaleString();
+
             try {
                 await transporter.sendMail({
                     from: process.env.SMTP_FROM || '"Secret Santa" <noreply@secretsanta.com>',
                     to: note.email,
-                    subject: '🎅 Your Secret Santa Match is Here!',
-                    text: `Hi ${note.name},\n\nYou have been invited to Secret Santa!\n\nClick the link below to see who you got (Link self-destructs after viewing!):\n${note.link}\n\nMerry Christmas!`,
+                    subject: `🎅 Your Secret Santa Match is Here! [${new Date().toLocaleTimeString()}]`,
+                    text: `Hi ${note.name},\n\nYou have been invited to Secret Santa!\n\nClick the link below to see who you got (Link self-destructs after viewing!):\n${note.link}\n\nMerry Christmas!\n\n(Sent at: ${timestamp})`,
                     html: `
               <div style="font-family: sans-serif; padding: 20px; text-align: center;">
                 <h1>🎅 Secret Santa</h1>
@@ -56,6 +58,7 @@ export default async function handler(req, res) {
                   </a>
                 </div>
                 <p style="color: #666; font-size: 12px;">This link will strictly self-destruct after you view it once. Do not share it!</p>
+                <p style="color: #999; font-size: 10px; margin-top: 20px;">Sent at: ${timestamp} (ID: ${Date.now()})</p>
               </div>
             `
                 });
