@@ -9,6 +9,9 @@ export default function ShareLinks() {
     const location = useLocation();
     const [copiedId, setCopiedId] = useState(null);
 
+    // Blind Mode state - default to true to protect the host
+    const [isBlindMode, setIsBlindMode] = useState(true);
+
     // Email modal state
     const [emailStatus, setEmailStatus] = useState('idle'); // idle, sending, success, error
     const [emailResult, setEmailResult] = useState('');
@@ -63,24 +66,41 @@ export default function ShareLinks() {
 
     return (
         <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center space-y-2">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 text-santa-green rounded-full mb-4">
-                    <Check className="w-6 h-6" />
+            <div className="text-center space-y-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 text-santa-green rounded-full mb-2">
+                    <Check className="w-8 h-8" />
                 </div>
-                <h2 className="text-3xl font-bold text-gray-900">Matches Generated!</h2>
-                <p className="text-gray-500">
-                    Send each person their unique link.
-                </p>
+                <h2 className="text-3xl font-bold text-gray-900">Pairs Generated!</h2>
 
-                <div className="pt-4">
+                {isBlindMode ? (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-lg mx-auto">
+                        <p className="text-yellow-800 font-medium">🙈 Blind Mode Active</p>
+                        <p className="text-yellow-700 text-sm mt-1">
+                            Links are hidden so you don't accidentally see who got whom!
+                            Use the email button below to send them automatically.
+                        </p>
+                    </div>
+                ) : (
+                    <p className="text-gray-500">
+                        Send each person their unique link.
+                    </p>
+                )}
+
+                <div className="pt-4 flex flex-col items-center gap-4">
                     <Button
-                        variant="secondary"
                         onClick={() => setShowModal(true)}
-                        className="mx-auto"
+                        className="w-full md:w-auto min-w-[200px] text-lg py-4 shadow-lg shadow-santa-red/20"
                     >
-                        <Mail className="w-4 h-4 mr-2" />
+                        <Mail className="w-5 h-5 mr-2" />
                         Send Emails to All
                     </Button>
+
+                    <button
+                        onClick={() => setIsBlindMode(!isBlindMode)}
+                        className="text-sm text-gray-400 hover:text-gray-600 underline"
+                    >
+                        {isBlindMode ? "Show Links (Spoiler Warning!)" : "Hide Links (Blind Mode)"}
+                    </button>
                 </div>
             </div>
 
@@ -127,52 +147,57 @@ export default function ShareLinks() {
                 </div>
             </Modal>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100">
-                {matches.map((m) => (
-                    <div key={m.id} className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 truncate">{m.name}</h3>
-                            <p className="text-xs text-gray-400 font-mono truncate">
-                                .../reveal/{m.id.slice(0, 8)}...
-                            </p>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <a
-                                href={`mailto:${m.email || ''}?subject=Your Secret Santa Match!&body=Hi ${m.name},%0D%0A%0D%0AHere is your Secret Santa link:%0D%0A${window.location.origin}/reveal/${m.id}?data=${encodeURIComponent(JSON.stringify({ e: m.encryptedMatch, i: m.iv }))}%23${m.key}%0D%0A%0D%0APlease open it privately.%0D%0A`}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-gray-50 text-gray-700 hover:bg-gray-100"
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                <ExternalLink className="w-4 h-4" />
-                                Draft
-                            </a>
-                            <button
-                                onClick={() => copyLink(m.id, m.key, m.encryptedMatch, m.iv)}
-                                className={`
-                  flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                  ${copiedId === m.id
-                                        ? 'bg-green-100 text-green-700'
-                                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                                    }
-                `}
-                            >
-                                {copiedId === m.id ? (
-                                    <>
-                                        <Check className="w-4 h-4" />
-                                        Copied
-                                    </>
-                                ) : (
-                                    <>
-                                        <Copy className="w-4 h-4" />
-                                        Copy
-                                    </>
-                                )}
-                            </button>
-                        </div>
+            {!isBlindMode && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100 animate-in fade-in duration-300">
+                    <div className="p-4 bg-gray-50 rounded-t-2xl border-b border-gray-100">
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Manual Links</h3>
                     </div>
-                ))}
-            </div>
+                    {matches.map((m) => (
+                        <div key={m.id} className="p-4 flex items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-gray-900 truncate">{m.name}</h3>
+                                <p className="text-xs text-gray-400 font-mono truncate">
+                                    .../reveal/{m.id.slice(0, 8)}...
+                                </p>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <a
+                                    href={`mailto:${m.email || ''}?subject=Your Secret Santa Match!&body=Hi ${m.name},%0D%0A%0D%0AHere is your Secret Santa link:%0D%0A${window.location.origin}/reveal/${m.id}?data=${encodeURIComponent(JSON.stringify({ e: m.encryptedMatch, i: m.iv }))}%23${m.key}%0D%0A%0D%0APlease open it privately.%0D%0A`}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-gray-50 text-gray-700 hover:bg-gray-100"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    <ExternalLink className="w-4 h-4" />
+                                    Draft
+                                </a>
+                                <button
+                                    onClick={() => copyLink(m.id, m.key, m.encryptedMatch, m.iv)}
+                                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                      ${copiedId === m.id
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                                        }
+                    `}
+                                >
+                                    {copiedId === m.id ? (
+                                        <>
+                                            <Check className="w-4 h-4" />
+                                            Copied
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy className="w-4 h-4" />
+                                            Copy
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div className="text-center pt-8">
                 <Link to="/" className="text-santa-red hover:underline text-sm font-medium">
@@ -180,10 +205,12 @@ export default function ShareLinks() {
                 </Link>
             </div>
 
-            <div className="bg-blue-50 p-4 rounded-xl text-sm text-blue-800 flex gap-2">
-                <span className="font-bold">Note:</span>
-                These links contain the encryption keys. Do not share the whole list with anyone else!
-            </div>
+            {!isBlindMode && (
+                <div className="bg-blue-50 p-4 rounded-xl text-sm text-blue-800 flex gap-2">
+                    <span className="font-bold">Note:</span>
+                    These links contain the encryption keys. Do not share the whole list with anyone else!
+                </div>
+            )}
         </div>
     );
 }
