@@ -1,55 +1,39 @@
-import { kv } from '@vercel/kv';
-import { createClient } from 'redis';
+import { put, list, del } from '@vercel/blob';
 
-// In-memory fallback
+// In-memory fallback for local development
 const memoryStore = new Map();
 
-// Helper to get a redis client if using generic REDIS_URL
-let redisClient = null;
-async function getRedisClient() {
-    if (redisClient) return redisClient;
-    if (process.env.REDIS_URL) {
-        console.log('[STORAGE] Initializing standard Redis client...');
-        const client = createClient({ url: process.env.REDIS_URL });
-        client.on('error', err => console.error('[STORAGE] Redis Client Error', err));
-        await client.connect();
-        redisClient = client;
-        return client;
-    }
-    return null;
-}
-
 export const saveMatch = async (id, data) => {
-    // Debug logging
-    console.log(`[STORAGE] Saving match ${id}.`);
-    console.log(`[STORAGE] ENV CHECK: KV_URL=${!!process.env.KV_REST_API_URL}, REDIS_URL=${!!process.env.REDIS_URL}`);
+    console.log(`[STORAGE] Saving match ${id}. BLOB_READ_WRITE_TOKEN Configured: ${!!process.env.BLOB_READ_WRITE_TOKEN}`);
 
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-        // Use Vercel KV (HTTP)
-        await kv.set(`match:${id}`, data);
-        console.log(`[STORAGE] Saved to Vercel KV: match:${id}`);
-    } else if (process.env.REDIS_URL) {
-        // Use standard Redis (TCP)
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
         try {
-            const client = await getRedisClient();
-            await client.set(`match:${id}`, JSON.stringify(data));
-            console.log(`[STORAGE] Saved to Standard Redis: match:${id}`);
+            // Save as a JSON file in the 'matches' folder
+            await put(`matches/${id}.json`, JSON.stringify(data), {
+                access: 'public',
+                contentType: 'application/json',
+                addRandomSuffix: false // Ensure exact filename match
+            });
+            console.log(`[STORAGE] Successfully saved to Vercel Blob: matches/${id}.json`);
         } catch (e) {
-            console.error('[STORAGE] Standard Redis write failed:', e);
+            console.error(`[STORAGE] Failed to save to Blob:`, e);
             throw e;
         }
     } else {
-        console.warn('[STORAGE] NO DB CONFIGURED! Using memory store (data will be lost).');
+        console.warn('[STORAGE] Blob not configured, using memory store (data will be lost in serverless)');
         memoryStore.set(id, data);
     }
 };
 
 export const deleteMatch = async (id) => {
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-        await kv.del(`match:${id}`);
-    } else if (process.env.REDIS_URL) {
-        const client = await getRedisClient();
-        await client.del(`match:${id}`);
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+        // Blob API requires the full URL to delete
+        // List to find the URL for this ID
+        const { blobs } = await list({ prefix: `matches/${id}.json` });
+        if (blobs.length > 0) {
+            await del(blobs.map(b => b.url));
+            console.log(`[STORAGE] Deleted blob: matches/${id}.json`);
+        }
     } else {
         memoryStore.delete(id);
     }
@@ -58,12 +42,17 @@ export const deleteMatch = async (id) => {
 export const getMatch = async (id) => {
     console.log(`[STORAGE] Getting match ${id}...`);
 
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-        return await kv.get(`match:${id}`);
-    } else if (process.env.REDIS_URL) {
-        const client = await getRedisClient();
-        const data = await client.get(`match:${id}`);
-        return data ? JSON.parse(data) : null;
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+        // We have to fetch the URL content
+        const { blobs } = await list({ prefix: `matches/${id}.json` });
+
+        if (blobs.length === 0) return null;
+
+        // Fetch the content of the blob
+        const response = await fetch(blobs[0].url);
+        if (!response.ok) return null;
+
+        return await response.json();
     } else {
         return memoryStore.get(id);
     }
