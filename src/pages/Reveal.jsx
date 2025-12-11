@@ -47,9 +47,24 @@ export default function Reveal() {
             const iv = base64ToArrayBuffer(data.i);
             const ciphertext = base64ToArrayBuffer(data.e);
 
-            const decryptedName = await decrypt(ciphertext, key, iv);
+            const decryptedString = await decrypt(ciphertext, key, iv);
+            let matchName = decryptedString;
 
-            setMatchName(decryptedName);
+            // Try to parse as JSON (new format with expiry)
+            try {
+                const data = JSON.parse(decryptedString);
+                if (data.expiry && Date.now() > data.expiry) {
+                    throw new Error("EXPIRED");
+                }
+                matchName = data.text || decryptedString;
+            } catch (e) {
+                if (e.message === "EXPIRED") {
+                    throw e; // Re-throw expiry error
+                }
+                // If not JSON, assume legacy format (just plain text) -> valid
+            }
+
+            setMatchName(matchName);
             setStatus('revealed');
 
             // Confetti!
@@ -60,10 +75,15 @@ export default function Reveal() {
                 colors: ['#D42426', '#165B33', '#ffffff'] // Red, Green, White
             });
 
+            // If not JSON, assume legacy format (just plain text) -> valid
         } catch (err) {
             console.error(err);
             setStatus('error');
-            setErrorMsg('This link is invalid or corrupted. Please check if you copied the full URL.');
+            if (err.message === "EXPIRED") {
+                setErrorMsg('This link has expired. Secret Santa links are only valid for 10 minutes.');
+            } else {
+                setErrorMsg('This link is invalid or corrupted. Please check if you copied the full URL.');
+            }
         }
     };
 

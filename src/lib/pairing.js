@@ -61,10 +61,13 @@ export async function generateSecretSantaPairs(participants) {
         const key = await generateKey();
         const keyString = await exportKey(key);
 
-        // Encrypt the receiver's name
-        // We can store more info like "Name (Email)"
-        const matchText = receiver.name + (receiver.email ? ` (${receiver.email})` : "");
-        const { iv, ciphertext } = await encrypt(matchText, key);
+        // Encrypt the receiver's name with Expiration
+        // We utilize a JSON object to store metadata securely
+        const matchData = {
+            text: receiver.name + (receiver.email ? ` (${receiver.email})` : ""),
+            expiry: Date.now() + (10 * 60 * 1000) // 10 minutes from now
+        };
+        const { iv, ciphertext } = await encrypt(JSON.stringify(matchData), key);
 
         matches.push({
             id,
