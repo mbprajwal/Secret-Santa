@@ -80,7 +80,7 @@ export default function Reveal() {
             console.error(err);
             setStatus('error');
             if (err.message === "EXPIRED") {
-                setErrorMsg('This link has expired. Secret Santa links are only valid for 10 minutes.');
+                setErrorMsg('This link has expired. Secret Santa links are only valid for 1 minute.');
             } else {
                 setErrorMsg('This link is invalid or corrupted. Please check if you copied the full URL.');
             }
