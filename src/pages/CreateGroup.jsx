@@ -4,7 +4,6 @@ import { Plus, Trash2, Users } from 'lucide-react';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import { generateSecretSantaPairs } from '../lib/pairing';
-import { storeMatches } from '../lib/api';
 
 export default function CreateGroup() {
     const navigate = useNavigate();
@@ -53,13 +52,10 @@ export default function CreateGroup() {
             const matches = await generateSecretSantaPairs(validParticipants);
 
             // 2. Prepare payload for server
-            // The server gets { id, encryptedMatch, iv }
-            // We keep { id, name, key } to show to the user
-
-            await storeMatches(matches);
+            // STATELESS MODE: We skip server storage.
+            // All data will be encoded in the links generated in ShareLinks.
 
             // 3. Navigate to share page with the secure data state
-            // We pass the local data (keys) via state so it's not in the URL yet
             navigate('/share', { state: { matches } });
 
         } catch (err) {

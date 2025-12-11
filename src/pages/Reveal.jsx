@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Loader2, Gift, Lock } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { getMatch } from '../lib/api';
 import { importKey, decrypt, base64ToArrayBuffer } from '../lib/crypto';
 import Button from '../components/Button';
 
@@ -28,14 +27,25 @@ export default function Reveal() {
         try {
             setStatus('loading');
 
-            // 2. Fetch encrypted blob from server
-            const data = await getMatch(id);
+            // 2. GET ENCRYPTED BLOB FROM URL (Stateless)
+            const queryParams = new URLSearchParams(window.location.search);
+            const dataStr = queryParams.get('data');
+
+            if (!dataStr) {
+                throw new Error("Missing match data in link.");
+            }
+
+            const data = JSON.parse(decodeURIComponent(dataStr));
+            // data: { e: encryptedMatch, i: iv } (shortened keys for URL length)
+
+            if (!data.e || !data.i) {
+                throw new Error("Invalid match data format.");
+            }
 
             // 3. Decrypt
-            // data: { encryptedMatch (base64), iv (base64) }
             const key = await importKey(hashKey);
-            const iv = base64ToArrayBuffer(data.iv);
-            const ciphertext = base64ToArrayBuffer(data.encryptedMatch);
+            const iv = base64ToArrayBuffer(data.i);
+            const ciphertext = base64ToArrayBuffer(data.e);
 
             const decryptedName = await decrypt(ciphertext, key, iv);
 
@@ -53,10 +63,7 @@ export default function Reveal() {
         } catch (err) {
             console.error(err);
             setStatus('error');
-            // If the API threw an error or returned 410 (implied by fetch implementation throwing? No, we need to check response status in lib/api.js first or handle it here)
-            // Actually lib/api.js throws generic error. Let's rely on the error text or make api.js better.
-            // For now, let's just show the generic message which we will improve.
-            setErrorMsg('This link has expired or was already viewed. For security, matches are deleted immediately after viewing.');
+            setErrorMsg('This link is invalid or corrupted. Please check if you copied the full URL.');
         }
     };
 

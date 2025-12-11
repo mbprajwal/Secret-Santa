@@ -20,10 +20,13 @@ export default function ShareLinks() {
 
     const { matches } = location.state;
 
-    const copyLink = (id, key) => {
+    const copyLink = (id, key, encryptedMatch, iv) => {
         // Determine base URL (prefer VITE_PUBLIC_URL if set, else origin)
         const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-        const url = `${baseUrl}/reveal/${id}#${key}`;
+        // STATELESS: Embed encryption data in URL
+        const dataPayload = encodeURIComponent(JSON.stringify({ e: encryptedMatch, i: iv }));
+        const url = `${baseUrl}/reveal/${id}?data=${dataPayload}#${key}`;
+
         navigator.clipboard.writeText(url);
         setCopiedId(id);
         setTimeout(() => setCopiedId(null), 2000);
@@ -35,11 +38,14 @@ export default function ShareLinks() {
 
             const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
 
-            const notifications = matches.filter(m => m.email).map(m => ({
-                name: m.name,
-                email: m.email,
-                link: `${baseUrl}/reveal/${m.id}#${m.key}`
-            }));
+            const notifications = matches.filter(m => m.email).map(m => {
+                const dataPayload = encodeURIComponent(JSON.stringify({ e: m.encryptedMatch, i: m.iv }));
+                return {
+                    name: m.name,
+                    email: m.email,
+                    link: `${baseUrl}/reveal/${m.id}?data=${dataPayload}#${m.key}`
+                };
+            });
 
             if (notifications.length === 0) {
                 throw new Error("No participants have email addresses.");
@@ -133,7 +139,7 @@ export default function ShareLinks() {
 
                         <div className="flex gap-2">
                             <a
-                                href={`mailto:${m.email || ''}?subject=Your Secret Santa Match!&body=Hi ${m.name},%0D%0A%0D%0AHere is your Secret Santa link:%0D%0A${window.location.origin}/reveal/${m.id}%23${m.key}%0D%0A%0D%0APlease open it privately. This link will self-destruct after you view it!`}
+                                href={`mailto:${m.email || ''}?subject=Your Secret Santa Match!&body=Hi ${m.name},%0D%0A%0D%0AHere is your Secret Santa link:%0D%0A${window.location.origin}/reveal/${m.id}?data=${encodeURIComponent(JSON.stringify({ e: m.encryptedMatch, i: m.iv }))}%23${m.key}%0D%0A%0D%0APlease open it privately.%0D%0A`}
                                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-gray-50 text-gray-700 hover:bg-gray-100"
                                 target="_blank"
                                 rel="noreferrer"
@@ -142,7 +148,7 @@ export default function ShareLinks() {
                                 Draft
                             </a>
                             <button
-                                onClick={() => copyLink(m.id, m.key)}
+                                onClick={() => copyLink(m.id, m.key, m.encryptedMatch, m.iv)}
                                 className={`
                   flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
                   ${copiedId === m.id
